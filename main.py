@@ -30,22 +30,34 @@ class Bot:
         :param email: user's email
         :param password: user's password
         """
-
+        # Checks if not already logged
         if not self.driver.current_url == "https://auth.global-exam.com/login":
-            return print("already logged")
+            print("already logged")
 
+        # Gets email input element when the webpage is ready
         input_email: WebElement = WebDriverWait(self.driver, timeout=2000).until(
             lambda d: d.find_element(By.ID, "email"))
         input_email.click()
         action = ActionChains(self.driver)
+        # Fill input
         action.send_keys(email)
         action.perform()
 
+        # Gets password input element
         input_password: WebElement = self.driver.find_element(By.ID, "password")
         input_password.click()
         action = ActionChains(self.driver)
+        # Fill input
         action.send_keys(password)
         action.perform()
+
+        # Gets the login button
+        log_button: WebElement = self.driver.find_element(By.CSS_SELECTOR, "#login-form > div.text-center > button")
+        log_button.click()
+
+    def launch_phrase_a_trou(self):
+        self.driver.get("https://exam.global-exam.com/library/trainings/exercises/492/activities")
+        # TODO
 
     def run(self):
         """
@@ -54,10 +66,11 @@ class Bot:
         self.driver.get("https://auth.global-exam.com/login")
 
         email, password = self.load_credentials()
-        self.login(email, password)
-        input()
 
-        self.driver.quit() #shouldnt quit here ? idk
+        self.login(email, password)
+
+        self.launch_phrase_a_trou()
+        input()
 
 
 if __name__ == "__main__":
