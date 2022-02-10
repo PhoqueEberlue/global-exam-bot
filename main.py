@@ -17,7 +17,7 @@ class Bot:
     @staticmethod
     def load_credentials() -> Tuple[str, str]:
         """
-        Load user's credentials stored in credentials.json as {"email": "exemple@email.fr", "password": "SigmaPassword"}
+        Load user's credentials stored in credentials.json as {"email": "exemple@email.fr", "password": "SigmaPassword"} 
         :return: email, password
         """
         with open("credentials.json", "r") as file:
@@ -30,6 +30,10 @@ class Bot:
         :param email: user's email
         :param password: user's password
         """
+
+        if not self.driver.current_url == "https://auth.global-exam.com/login":
+            return print("already logged")
+
         input_email: WebElement = WebDriverWait(self.driver, timeout=2000).until(
             lambda d: d.find_element(By.ID, "email"))
         input_email.click()
@@ -53,10 +57,9 @@ class Bot:
         self.login(email, password)
         input()
 
-        self.driver.quit()
+        self.driver.quit() #shouldnt quit here ? idk
 
 
 if __name__ == "__main__":
     bot = Bot()
     bot.run()
-
