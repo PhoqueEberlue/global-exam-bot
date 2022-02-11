@@ -1,3 +1,4 @@
+import time
 import json
 from typing import Tuple
 from selenium import webdriver
@@ -13,6 +14,7 @@ class Bot:
         Bot class
         """
         self.driver = webdriver.Chrome()
+        self.questionTimeInterval = 5 #NOTE change to 60s+ for release
 
     @staticmethod
     def load_credentials() -> Tuple[str, str]:
@@ -54,10 +56,61 @@ class Bot:
         # Gets the login button
         log_button: WebElement = self.driver.find_element(By.CSS_SELECTOR, "#login-form > div.text-center > button")
         log_button.click()
+        
 
-    def launch_phrase_a_trou(self):
-        self.driver.get("https://exam.global-exam.com/library/trainings/exercises/492/activities")
-        # TODO
+    def isSessionFinished(self): #TODO session timer
+        return False
+
+    def doPhraseATrou(self, ex):
+        ex.click()
+
+        start: WebElement = WebDriverWait(self.driver, timeout=2000).until(
+            lambda d: d.find_element(By.XPATH,\
+                "//*[ contains (text(), 'arrer' )]" ))
+        if start: start.click()
+
+        showCorrection: WebElement = WebDriverWait(self.driver, timeout=2000).until(
+            lambda d: d.find_elements(By.XPATH,\
+                    "//*[ contains (text(), 'Voir' )]")) #YOINK
+
+        for bttn in showCorrection:
+            bttn.click()
+
+        solution = self.driver.find_elements(By.CSS_SELECTOR, \
+                "text-success-80 svg-inline--fa fa-check fa-w-16 fa-fw fa-lg")
+                #NOTE should do xpath + tag, this doesnt work
+        for bttn in solution:
+            time.sleep(self.questionTimeInterval) #maybe not necessary, ugly,
+            bttn.click()
+        # hide ? 
+        for bttn in showCorrection:
+            bttn.click()                        # but does exactly what we want
+
+        self.driver.find_elements_by_class_name(\
+                'min-w-48 button-solid-primary-large')
+        #yay
+        print("should have worked")
+
+
+
+
+    def launch_phrase_a_trou(self): #only launcher or doPhraseATrou ?
+         # i tried something, remove if ugly
+        self.driver.get(\
+            "https://exam.global-exam.com/library/trainings/exercises/492/activities")
+
+        exListe = self.getDoableEx()
+
+        while not self.isSessionFinished() and exListe: #latter one checks vacuity
+            ex = exListe.pop() #possible in one line ?
+            self.doPhraseATrou(ex)
+        # TODO time session, stop after X sec
+        # NOTE ik how to do that, remind me if i forget
+
+    def getDoableEx(self):
+        return WebDriverWait(self.driver, timeout=2000).until(
+            lambda d: d.find_elements(By.XPATH,\
+                    "//*[ contains (text(), 'Lancer' )]")) #YOINK
 
     def run(self):
         """
@@ -69,8 +122,9 @@ class Bot:
 
         self.login(email, password)
 
-        self.launch_phrase_a_trou()
-        input()
+        self.launch_phrase_a_trou() #TODO choice if we got time
+        print('fuck')
+        input() #wat
 
 
 if __name__ == "__main__":
