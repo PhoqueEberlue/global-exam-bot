@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
 
 
 class Bot:
@@ -14,7 +15,10 @@ class Bot:
         Bot class
         """
         self.driver = webdriver.Chrome()
+        self.actions = ActionChains(self.driver)
         self.questionTimeInterval = 5 #NOTE change to 60s+ for release
+        self.timeStart = int(time.time())
+        self.sessionTime = 10*60
 
     @staticmethod
     def load_credentials() -> Tuple[str, str]:
@@ -37,7 +41,7 @@ class Bot:
             print("already logged")
 
         # Gets email input element when the webpage is ready
-        input_email: WebElement = WebDriverWait(self.driver, timeout=2000).until(
+        input_email: WebElement = WebDriverWait(self.driver, timeout=2).until(
             lambda d: d.find_element(By.ID, "email"))
         input_email.click()
         action = ActionChains(self.driver)
@@ -59,40 +63,55 @@ class Bot:
         
 
     def isSessionFinished(self): #TODO session timer
-        return False
+        return int(time.time() - self.timeStart) > self.sessionTime
 
-    def doPhraseATrou(self, ex):
-        ex.click()
 
-        start: WebElement = WebDriverWait(self.driver, timeout=2000).until(
-            lambda d: d.find_element(By.XPATH,\
-                "//*[ contains (text(), 'arrer' )]" ))
-        if start: start.click()
-
-        showCorrection: WebElement = WebDriverWait(self.driver, timeout=2000).until(
+    def doPhraseATrou(self):
+        showCorrection: WebElement
+        try: 
+            WebDriverWait(self.driver, timeout=2).until(
             lambda d: d.find_elements(By.XPATH,\
-                    "//*[ contains (text(), 'Voir' )]")) #YOINK
-
+                    "//*[ contains (text(), 'Voir la correctoin' )]"))
+        except TimeoutException:
+            return #lmao
         for bttn in showCorrection:
             bttn.click()
 
-        solution = self.driver.find_elements(By.CSS_SELECTOR, \
-                "text-success-80 svg-inline--fa fa-check fa-w-16 fa-fw fa-lg")
-                #NOTE should do xpath + tag, this doesnt work
+        solution = self.driver.find_elements(By.XPATH,\
+                "//*[contains (@class, 'text-success-80 svg-inline--fa fa-check fa-w-16 fa-fw fa-lg')]")
+
+        ##gotta request again maybe idk seems to work ?
+        #showCorrection: WebElement = WebDriverWait(self.driver, timeout=2).until(
+        #    lambda d: d.find_elements(By.XPATH,\
+        #            "//*[contains (text(), 'Voir')]"))
+
         for bttn in solution:
-            time.sleep(self.questionTimeInterval) #maybe not necessary, ugly,
+            self.actions.move_to_element(bttn).perform()
+            time.sleep(self.questionTimeInterval)
             bttn.click()
-        # hide ? 
-        for bttn in showCorrection:
-            bttn.click()                        # but does exactly what we want
 
-        self.driver.find_elements_by_class_name(\
-                'min-w-48 button-solid-primary-large')
+
+        for bttn in showCorrection:#hide
+            self.actions.move_to_element(bttn).perform()
+            bttn.click()
+
+        self.driver.find_element(By.XPATH,\
+                '//*[contains (@class, "min-w-48 button-solid-primary-large")]').click()
         #yay
         print("should have worked")
+        self.doPhraseATrou() #aha recursion go brrrrrrr
 
 
+    def beginExercie(self):
 
+        start: WebElement 
+        try: start = WebDriverWait(self.driver, timeout=2).until(
+            lambda d: d.find_element(By.CLASS_NAME,\
+                "button-solid-primary-medium" ))
+        except TimeoutException:
+            pass #so bad but it works
+
+        self.doPhraseATrou()
 
     def launch_phrase_a_trou(self): #only launcher or doPhraseATrou ?
          # i tried something, remove if ugly
@@ -103,14 +122,14 @@ class Bot:
 
         while not self.isSessionFinished() and exListe: #latter one checks vacuity
             ex = exListe.pop() #possible in one line ?
-            self.doPhraseATrou(ex)
-        # TODO time session, stop after X sec
-        # NOTE ik how to do that, remind me if i forget
+            ex.click()
+            self.beginExercie()
+        print("finished ! :)")
 
     def getDoableEx(self):
-        return WebDriverWait(self.driver, timeout=2000).until(
+        return WebDriverWait(self.driver, timeout=2).until(
             lambda d: d.find_elements(By.XPATH,\
-                    "//*[ contains (text(), 'Lancer' )]")) #YOINK
+                    "//*[ contains (text(), 'Lancer') or contains (text(), 'Continuer')]")) #YOINK gotta redo later
 
     def run(self):
         """
@@ -123,8 +142,6 @@ class Bot:
         self.login(email, password)
 
         self.launch_phrase_a_trou() #TODO choice if we got time
-        print('fuck')
-        input() #wat
 
 
 if __name__ == "__main__":
