@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException as StaleElt
 
 
 class Bot:
@@ -16,7 +16,7 @@ class Bot:
         """
         self.driver = webdriver.Chrome()
         self.actions = ActionChains(self.driver)
-        self.questionTimeInterval = 5 #NOTE change to 60s+ for release
+        self.questionTimeInterval = 4 #NOTE change to 60s+ for release
         self.timeStart = int(time.time())
         self.sessionTime = 10*60
 
@@ -65,53 +65,63 @@ class Bot:
     def isSessionFinished(self): #TODO session timer
         return int(time.time() - self.timeStart) > self.sessionTime
 
+    def finishing(self):
+        return print("finished")
+
+
 
     def doPhraseATrou(self):
-        showCorrection: WebElement
-        try: 
-            WebDriverWait(self.driver, timeout=2).until(
-            lambda d: d.find_elements(By.XPATH,\
-                    "//*[ contains (text(), 'Voir la correctoin' )]"))
-        except TimeoutException:
-            return #lmao
-        for bttn in showCorrection:
-            bttn.click()
+        shouldContinue = True
+        while shouldContinue:
+            if "result" in self.driver.current_url: return self.finishing()
+            showCorrection = []
 
-        solution = self.driver.find_elements(By.XPATH,\
-                "//*[contains (@class, 'text-success-80 svg-inline--fa fa-check fa-w-16 fa-fw fa-lg')]")
+            try: 
+                showCorrection = WebDriverWait(self.driver, timeout=5).until(
+                lambda d: d.find_elements(By.XPATH,\
+                        "//*[ contains (text(), 'Voir' )]"))
+            except TimeoutException:
+                shouldContinue = False; print("\033[0;39;49m;[no"); return
 
-        ##gotta request again maybe idk seems to work ?
-        #showCorrection: WebElement = WebDriverWait(self.driver, timeout=2).until(
-        #    lambda d: d.find_elements(By.XPATH,\
-        #            "//*[contains (text(), 'Voir')]"))
+            for bttn in showCorrection:
+                self.actions.move_to_element(bttn).perform()
+                bttn.click()
 
-        for bttn in solution:
-            self.actions.move_to_element(bttn).perform()
-            time.sleep(self.questionTimeInterval)
-            bttn.click()
+            solution = self.driver.find_elements(By.XPATH,\
+                    "//*[contains (@class, 'text-success-80 svg-inline--fa fa-check fa-w-16 fa-fw fa-lg')]")
+
+            ##gotta request again maybe idk seems to work ?
+            #showCorrection: WebElement = WebDriverWait(self.driver, timeout=2).until(
+            #    lambda d: d.find_elements(By.XPATH,\
+            #            "//*[contains (text(), 'Voir')]"))
+
+            for bttn in solution:
+                self.actions.move_to_element(bttn).perform()
+                time.sleep(self.questionTimeInterval)
+                bttn.click()
 
 
-        for bttn in showCorrection:#hide
-            self.actions.move_to_element(bttn).perform()
-            bttn.click()
+            for bttn in showCorrection:#hide
+                self.actions.move_to_element(bttn).perform()
+                bttn.click()
 
-        self.driver.find_element(By.XPATH,\
-                '//*[contains (@class, "min-w-48 button-solid-primary-large")]').click()
-        #yay
+            self.driver.find_element(By.XPATH,\
+                    '//*[contains (@class, "min-w-48 button-solid-primary-large")]').click()
+            #yay
         print("should have worked")
-        self.doPhraseATrou() #aha recursion go brrrrrrr
 
 
     def beginExercie(self):
-
         start: WebElement 
-        try: start = WebDriverWait(self.driver, timeout=2).until(
+        try:
+            start = WebDriverWait(self.driver, timeout=2).until(
             lambda d: d.find_element(By.CLASS_NAME,\
                 "button-solid-primary-medium" ))
+            start.click()
         except TimeoutException:
-            pass #so bad but it works
+            print("no start page")
 
-        self.doPhraseATrou()
+        return self.doPhraseATrou()
 
     def launch_phrase_a_trou(self): #only launcher or doPhraseATrou ?
          # i tried something, remove if ugly
@@ -120,14 +130,19 @@ class Bot:
 
         exListe = self.getDoableEx()
 
-        while not self.isSessionFinished() and exListe: #latter one checks vacuity
+        while not self.isSessionFinished() and exListe: #later one checks vacuity
             ex = exListe.pop() #possible in one line ?
-            ex.click()
+            try: 
+                ex.click()
+            except StaleElt:
+                print("HERE 140")
+                
+            time.sleep(4)
             self.beginExercie()
         print("finished ! :)")
 
     def getDoableEx(self):
-        return WebDriverWait(self.driver, timeout=2).until(
+        return WebDriverWait(self.driver, timeout=2000).until(
             lambda d: d.find_elements(By.XPATH,\
                     "//*[ contains (text(), 'Lancer') or contains (text(), 'Continuer')]")) #YOINK gotta redo later
 
